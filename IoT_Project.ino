@@ -4,21 +4,24 @@
 
 #define SS_PIN 10
 #define RST_PIN 9
+#define REMOTE_PIN 4
 
 const int triggerPin = 8;
 const int pinRelais = 7;
 
 int state = 0;
 bool lockOpen = false;  // Nouvelle variable pour suivre l'état de la serrure
+bool accessPreviouslyGranted = false;  // Pour suivre l'état précédent
 
 MFRC522 rfid(SS_PIN, RST_PIN);
-byte authorizedUID[][2] = { {0x63, 0x44, 0x8E, 0x97},
+byte authorizedUID[][4] = { {0x63, 0x44, 0x8E, 0x97},
                             {0x13, 0xEE, 0x6D, 0x97} };
 
 void setup()
 {
   Serial.begin(9600);
   pinMode(triggerPin, OUTPUT);
+  pinMode(REMOTE_PIN, INPUT);  // Configurer REMOTE_PIN comme entrée
   pinMode(pinRelais, OUTPUT);
   digitalWrite(triggerPin, LOW);
   digitalWrite(pinRelais, LOW);
@@ -29,68 +32,77 @@ void setup()
 
 void loop()
 {
-  if (!rfid.PICC_IsNewCardPresent())
-    return;
-
-  if (!rfid.PICC_ReadCardSerial())
-    return;
-
-  byte nuidPICC[4];
-  for (byte i = 0; i < 4; i++)
-  {
-    nuidPICC[i] = rfid.uid.uidByte[i];
-  }
-
-  Serial.println("Un badge est détecté");
-  Serial.println(" L'UID du tag est:");
-  for (byte i = 0; i < 4; i++)
-  {
-    Serial.print(nuidPICC[i], HEX);
-    Serial.print(" ");
-  }
-  Serial.println();
-
   bool accessGranted = false;
-  for (int i = 0; i < sizeof(authorizedUID) / sizeof(authorizedUID[0]); i++)
+
+  // Vérifier l'accès par carte RFID
+  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial())
   {
-    if (compareUID(nuidPICC, authorizedUID[i]))
+    byte nuidPICC[4];
+    for (byte i = 0; i < 4; i++)
     {
-      accessGranted = true;
-      break;
+      nuidPICC[i] = rfid.uid.uidByte[i];
     }
+
+    Serial.println("Un badge est détecté");
+    Serial.println(" L'UID du tag est:");
+    for (byte i = 0; i < 4; i++)
+    {
+      Serial.print(nuidPICC[i], HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
+
+    for (int i = 0; i < sizeof(authorizedUID) / sizeof(authorizedUID[0]); i++)
+    {
+      if (compareUID(nuidPICC, authorizedUID[i]))
+      {
+        accessGranted = true;
+        break;
+      }
+    }
+
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+  }
+
+  // Vérifier l'accès distant via REMOTE_PIN
+  if (digitalRead(REMOTE_PIN) == HIGH)
+  {
+    Serial.println("Commande à distance reçue");
+    accessGranted = true;
   }
 
   if (accessGranted)
   {
-    Serial.println("Accès autorisé");
-    digitalWrite(triggerPin, HIGH);
-    delay(100);  // Attendre 100 millisecondes
-    digitalWrite(triggerPin, LOW);
-    state = digitalRead(triggerPin);
-    digitalWrite(pinRelais, HIGH);
-    lockOpen = true;  // La serrure est ouverte
-    Serial.println(state);
+    if (!accessPreviouslyGranted)
+    {
+      Serial.println("Accès autorisé");
+      digitalWrite(triggerPin, HIGH);
+      digitalWrite(pinRelais, HIGH);
+      lockOpen = true;  // La serrure est ouverte
+      delay(30000);  // Attendre 30 secondes
+      digitalWrite(triggerPin, LOW);
+      digitalWrite(pinRelais, LOW);
+      lockOpen = false;  // La serrure est maintenant fermée
+      Serial.println("La serrure est fermée après le délai");
+    }
+    accessPreviouslyGranted = true;
   }
   else
   {
-    Serial.println("Accès refusé");
+    if (accessPreviouslyGranted)
+    {
+      Serial.println("Accès refusé");
+    }
     digitalWrite(triggerPin, LOW);
     digitalWrite(pinRelais, LOW);
     state = digitalRead(triggerPin);
     lockOpen = false;  // La serrure est fermée
-    Serial.println(state);
+    accessPreviouslyGranted = false;
   }
 
-  rfid.PICC_HaltA();
-  rfid.PCD_StopCrypto1();
-
-  // Ajouter la logique pour refermer la serrure après un certain temps
-  if (lockOpen)
-  {
-    delay(15000);  // Attendre 5 secondes (ajustez selon vos besoins)
-    digitalWrite(pinRelais, LOW);
-    lockOpen = false;  // La serrure est maintenant fermée
-  }
+  // Attendre 1 seconde avant de vérifier à nouveau
+  delay(1000);
 }
 
 bool compareUID(byte uid1[], byte uid2[])
