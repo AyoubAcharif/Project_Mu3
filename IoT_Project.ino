@@ -76,7 +76,7 @@ void loop()
   {
     if (!accessPreviouslyGranted)
     {
-      Serial.println("Accès autorisé");
+      Serial.println("Authorized Access");
       digitalWrite(triggerPin, HIGH);
       digitalWrite(pinRelais, HIGH);
       lockOpen = true;  // La serrure est ouverte
@@ -84,7 +84,7 @@ void loop()
       digitalWrite(triggerPin, LOW);
       digitalWrite(pinRelais, LOW);
       lockOpen = false;  // La serrure est maintenant fermée
-      Serial.println("La serrure est fermée après le délai");
+      Serial.println("The lock is close");
     }
     accessPreviouslyGranted = true;
   }
