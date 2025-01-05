@@ -37,7 +37,7 @@ void setup()
   lcd.begin();
   lcd.backlight(); // Activer le rétroéclairage
   lcd.setCursor(0, 0);
-  lcd.print("Systeme Pret...");
+  lcd.print("Ready...");
   delay(2000); // Attendre 2 secondes
 }
 
@@ -90,9 +90,9 @@ void loop()
       Serial.println("Authorized Access");
       lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print("Acces Autorise!");
+      lcd.print("authorized access");
       lcd.setCursor(0, 1);
-      lcd.print("Serrure Ouverte");
+      lcd.print("Door Open");
       digitalWrite(triggerPin, HIGH);
       digitalWrite(pinRelais, HIGH);
       lockOpen = true;  // La serrure est ouverte
@@ -102,7 +102,7 @@ void loop()
       lockOpen = false;  // La serrure est maintenant fermée
       lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print("Serrure Fermee");
+      lcd.print("Door Closed");
     }
     accessPreviouslyGranted = true;
   }
@@ -113,7 +113,7 @@ void loop()
       Serial.println("Accès refusé");
       lcd.clear();
       lcd.setCursor(0, 0);
-      lcd.print("Acces Refuse");
+      lcd.print("Door Closed");
     }
     digitalWrite(triggerPin, LOW);
     digitalWrite(pinRelais, LOW);
